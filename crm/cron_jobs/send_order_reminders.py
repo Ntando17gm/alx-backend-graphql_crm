@@ -1,46 +1,47 @@
 #!/usr/bin/env python3
-import requests
-from datetime import datetime, timedelta
+import datetime
+from gql import gql, Client
+from gql.transport.requests import RequestsHTTPTransport
 
 LOG_FILE = "/tmp/order_reminders_log.txt"
-GRAPHQL_ENDPOINT = "http://localhost:8000/graphql"
-
-# GraphQL query to get orders within the last 7 days
-query = """
-query {
-  orders {
-    id
-    customerEmail
-    orderDate
-  }
-}
-"""
 
 def log_message(message):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_FILE, "a") as f:
-        f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+        f.write(f"[{timestamp}] {message}\n")
 
 def main():
+    transport = RequestsHTTPTransport(
+        url="http://localhost:8000/graphql",
+        verify=False,
+        retries=3,
+    )
+
+    client = Client(transport=transport, fetch_schema_from_transport=False)
+
+    seven_days_ago = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+
+    query = gql(f"""
+    query {{
+        orders(orderDate_Gte: "{seven_days_ago}") {{
+            id
+            customer {{
+                email
+            }}
+        }}
+    }}
+    """)
+
     try:
-        # Make the GraphQL request
-        response = requests.post(GRAPHQL_ENDPOINT, json={"query": query})
-        response.raise_for_status()
-        data = response.json()
-
-        # Extract and filter orders
-        orders = data.get("data", {}).get("orders", [])
-        week_ago = datetime.now() - timedelta(days=7)
-        recent_orders = [
-            order for order in orders
-            if order.get("orderDate") and datetime.fromisoformat(order["orderDate"]) >= week_ago
-        ]
-
-        # Log each order reminder
-        if recent_orders:
-            for order in recent_orders:
-                log_message(f"Reminder: Order {order['id']} - Customer {order['customerEmail']}")
+        result = client.execute(query)
+        orders = result.get("orders", [])
+        if orders:
+            for order in orders:
+                order_id = order["id"]
+                customer_email = order["customer"]["email"]
+                log_message(f"Reminder for order {order_id} - Email: {customer_email}")
         else:
-            log_message("No recent orders found.")
+            log_message("No pending orders found.")
 
         print("Order reminders processed!")
 
@@ -49,4 +50,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
