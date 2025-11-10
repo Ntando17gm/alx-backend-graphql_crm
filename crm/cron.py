@@ -1,6 +1,17 @@
 import requests
 import datetime
 
+# -------------------------------
+#  Heartbeat Cron Job (Task 2)
+# -------------------------------
+def log_crm_heartbeat():
+    log_file = "/tmp/crm_heartbeat_log.txt"
+    with open(log_file, "a") as log:
+        log.write(f"[{datetime.datetime.now().strftime('%d/%m/%Y-%H:%M:%S')}] CRM is alive\n")
+
+# -------------------------------
+#  Low Stock Update Cron Job (Task 3)
+# -------------------------------
 def update_low_stock():
     url = "http://localhost:8001/graphql"
     query = """
