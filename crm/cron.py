@@ -1,31 +1,33 @@
+import requests
 import datetime
-from gql import gql, Client
-from gql.transport.requests import RequestsHTTPTransport
 
-LOG_FILE = "/tmp/crm_heartbeat_log.txt"
+def update_low_stock():
+    url = "http://localhost:8001/graphql"
+    query = """
+    mutation {
+      updateLowStockProducts {
+        message
+        updatedProducts {
+          name
+          stock
+        }
+      }
+    }
+    """
 
-def log_crm_heartbeat():
-    """Logs a heartbeat message every 5 minutes and optionally checks GraphQL hello."""
-    timestamp = datetime.datetime.now().strftime("%d/%m/%Y-%H:%M:%S")
-    message = f"{timestamp} CRM is alive"
-
-    # Log to file (append mode)
-    with open(LOG_FILE, "a") as f:
-        f.write(message + "\n")
-
-    # GraphQL check (optional)
-    transport = RequestsHTTPTransport(
-        url="http://localhost:8000/graphql",
-        verify=False,
-        retries=3,
-    )
-    client = Client(transport=transport, fetch_schema_from_transport=False)
-    query = gql("{ hello }")
+    log_file = "/tmp/low_stock_updates_log.txt"
 
     try:
-        client.execute(query)
-        with open(LOG_FILE, "a") as f:
-            f.write(f"{timestamp} GraphQL hello OK\n")
+        response = requests.post(url, json={"query": query})
+        response.raise_for_status()
+        data = response.json()
+
+        with open(log_file, "a") as log:
+            log.write(f"[{datetime.datetime.now().strftime('%d/%m/%Y-%H:%M:%S')}] Mutation Response: {data}\n")
+
     except Exception as e:
-        with open(LOG_FILE, "a") as f:
-            f.write(f"{timestamp} GraphQL check failed: {e}\n")
+        with open(log_file, "a") as log:
+            log.write(f"[{datetime.datetime.now().strftime('%d/%m/%Y-%H:%M:%S')}] Error: {str(e)}\n")
+
+
+
