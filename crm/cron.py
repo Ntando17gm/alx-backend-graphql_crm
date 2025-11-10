@@ -1,6 +1,11 @@
 import requests
 import datetime
 
+#  Add these imports for gql client
+from gql import gql, Client
+from gql.transport.requests import RequestsHTTPTransport
+
+
 # -------------------------------
 #  Heartbeat Cron Job (Task 2)
 # -------------------------------
@@ -8,6 +13,23 @@ def log_crm_heartbeat():
     log_file = "/tmp/crm_heartbeat_log.txt"
     with open(log_file, "a") as log:
         log.write(f"[{datetime.datetime.now().strftime('%d/%m/%Y-%H:%M:%S')}] CRM is alive\n")
+
+    #  Optionally query the GraphQL "hello" field to verify endpoint
+    try:
+        transport = RequestsHTTPTransport(
+            url="http://localhost:8001/graphql",
+            verify=False,
+            retries=3,
+        )
+        client = Client(transport=transport, fetch_schema_from_transport=True)
+        query = gql("{ hello }")
+        result = client.execute(query)
+        with open(log_file, "a") as log:
+            log.write(f"[{datetime.datetime.now().strftime('%d/%m/%Y-%H:%M:%S')}] GraphQL hello response: {result}\n")
+    except Exception as e:
+        with open(log_file, "a") as log:
+            log.write(f"[{datetime.datetime.now().strftime('%d/%m/%Y-%H:%M:%S')}] GraphQL check failed: {e}\n")
+
 
 # -------------------------------
 #  Low Stock Update Cron Job (Task 3)
